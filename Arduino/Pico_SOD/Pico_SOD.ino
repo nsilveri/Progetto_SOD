@@ -86,10 +86,12 @@ void setup() {
   Wire1.setSDA(6);
   Wire1.setSCL(7);
   Wire1.begin();
-  
+  /*
   BH1750_setup();   //Setup sensore BH1750
   PCF8523_setup();  //Setup sensore PCF8523
   BMP280_setup();   //Setup sensore BMP280
+  */
+
 }
 
 
@@ -123,9 +125,15 @@ String BMP280_data_read()
 
 void loop() //SOLO PER TEST, CON FREERTOS QUESTO VA VIA
 {
+/*
   String alt_value = BMP280_data_read();
   float lux = BH1750_data_read();
   int timestamp = millis();
+*/
+  String alt_value = String(random(0,50)) + "," + String(random(500, 2000)) + "," + String(random(0, 10000)); //random(min, max)
+  float lux = random(0.0,1.1);
+  int timestamp = millis();
+
 
   String sensors_test = String("alt_value: " + alt_value + "| lux: " + String(lux) + "| TimeStamp: " + String(timestamp));
 
