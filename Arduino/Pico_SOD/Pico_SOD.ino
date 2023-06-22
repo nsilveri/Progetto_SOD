@@ -10,9 +10,7 @@
 
 ArtronShop_BH1750 bh1750(0x23, &Wire1); // Non Jump ADDR: 0x23, Jump ADDR: 0x5C
 Adafruit_BMP280 bmp(&Wire1); // I2C1
-RTC_PCF8523 rtc;//(&Wire1); NECESSARIA MODIFICA DELLA LIBRERIA PER I2C1
-
-
+RTC_PCF8523 rtc;// I2C1 set in setup()
 
 void BMP280_setup()
 {
