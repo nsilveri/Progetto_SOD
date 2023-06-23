@@ -20,6 +20,7 @@
                 "C:\\Users\\Nicola\\AppData\\Local\\Arduino15\\packages\\rp2040\\hardware\\rp2040\\3.3.0\\cores\\rp2040",
                 "C:\\Users\\Nicola\\AppData\\Local\\Arduino15\\packages\\rp2040\\hardware\\rp2040\\3.3.0\\variants\\rpipico",
                 "C:\\Users\\Nicola\\AppData\\Local\\Arduino15\\packages\\rp2040\\hardware\\rp2040\\3.3.0\\libraries\\Wire\\src",
+                "D:\\Documents\\Arduino\\libraries\\ArduinoJson\\src",
                 "C:\\Users\\Nicola\\AppData\\Local\\Arduino15\\packages\\rp2040\\hardware\\rp2040\\3.3.0\\libraries\\FreeRTOS\\src",
                 "D:\\Documents\\Arduino\\libraries\\ArtronShop_BH1750\\src",
                 "D:\\Documents\\Arduino\\libraries\\RTClib\\src",
