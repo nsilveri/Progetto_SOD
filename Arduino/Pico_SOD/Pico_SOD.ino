@@ -46,6 +46,9 @@ void BH1750(void *params);
 void PCF8523(void *params);
 void I2C_Slave_Client(void *params);
 
+//Monitor per test
+void Tasks_Monitor(void *params);
+
 void BMP280_setup()
 {
   
@@ -162,6 +165,16 @@ void setup() {
   NULL                  // riferimento per accedere al task dall'esterno
   );
 
+  //Creazione Task PCF8523
+  xTaskCreate(
+  Tasks_Monitor,    //void da eseguire 
+  "Tasks_Monitor",  // nome processo
+  128,        // dimensione stack (byte)
+  NULL,       // parametri
+  1,          // priorità (più è alto, maggiore è la priorità)
+  NULL        // riferimento per accedere al task dall'esterno
+  );
+
   //Avvio scheduler di FreeRTOS
   vTaskStartScheduler();
 
@@ -241,6 +254,39 @@ void PCF8523(void *params){
       }
       xSemaphoreGive(I2C0_Mutex);
     }
+    vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
+  }
+}
+
+void Tasks_Monitor(void *params){
+/*setup()*/
+  String BMP280_aux = "";
+  float BH1750_aux = 0.0;
+  unsigned long PCF8523_aux = 0;
+
+/*loop()*/
+  while (true)
+  {
+    if (xSemaphoreTake(PCF8523_data_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      PCF8523_aux =  PCF8523_data;
+      xSemaphoreGive(PCF8523_data_Mutex);
+    }
+
+    if (xSemaphoreTake(BH1750_data_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      BH1750_aux =  BH1750_data;
+      xSemaphoreGive(BH1750_data_Mutex);
+    }
+
+    if (xSemaphoreTake(BMP280_data_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      BMP280_aux =  BMP280_data;
+      xSemaphoreGive(BMP280_data_Mutex);
+    }
+
+    Serial.println("|PCF8523: " + String(PCF8523_aux) + " |BH1750: " + String(BH1750_aux) + " |BMP280: " + String(BMP280_aux));
+
     vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
   }
 }
