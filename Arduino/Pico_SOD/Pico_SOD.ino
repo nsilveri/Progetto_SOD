@@ -25,10 +25,18 @@ String BMP280_data = "";
 float BH1750_data = 0.0;
 unsigned long PCF8523_data = 0;
 
+//Stato sensori
+bool RTC_PCF8523_status = false;
+bool Adafruit_BMP280_status = false;
+bool ArtronShop_BH1750_status = false;
+
 //Variabile globale del comando ottenuti dalla Raspberry Pi
 String Received_Comand = "";
-
 String Requested_Data = "";
+
+//Variabili globali per monitoraggio dei sensori
+#define ERROR_SENSOR_SETUP_CODE -99999
+String sensor_monitor_msg = "";
 
 //Semafori delle variabili globali dei dati dei sensori
 /*
@@ -38,7 +46,7 @@ Per cui necessita dei semafori
 SemaphoreHandle_t BMP280_data_Mutex;
 SemaphoreHandle_t BH1750_data_Mutex;
 SemaphoreHandle_t PCF8523_data_Mutex;
-SemaphoreHandle_t I2C0_Mutex;
+SemaphoreHandle_t I2C1_Mutex;
 
 // Prototipi delle funzioni
 void BMP280(void *params);
@@ -49,15 +57,11 @@ void I2C_Slave_Client(void *params);
 //Monitor per test
 void Tasks_Monitor(void *params);
 
-void BMP280_setup()
+bool BMP280_setup()
 {
-  
-  while ( !Serial ) delay(100);   // wait for native usb
-  Serial.println(F("BMP280 test"));
   unsigned status;
   //status = bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID);
-  status = bmp.begin();
-  if (!status) {
+  if (!bmp.begin()) {
     Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
                       "try a different address!"));
     Serial.print("SensorID was: 0x"); Serial.println(bmp.sensorID(),16);
@@ -65,49 +69,57 @@ void BMP280_setup()
     Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
     Serial.print("        ID of 0x60 represents a BME 280.\n");
     Serial.print("        ID of 0x61 represents a BME 680.\n");
-    while (1) delay(10);
+    //while (1) delay(10);
+    return false;
+  }else{
+    Adafruit_BMP280_status = true;
+    /* Default settings from datasheet. */
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, /* Operating Mode. */
+                Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
   }
-
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+  return true;
 }
 
-void PCF8523_setup()
+bool PCF8523_setup()
 {
   if (! rtc.begin(&Wire1)) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
-    while (1) delay(10);
+    return false;
+    //while (1) delay(10);
+  }else{
+    RTC_PCF8523_status == true;
+    if (! rtc.initialized() || rtc.lostPower())
+    {
+      Serial.println("RTC is NOT initialized, let's set the time!");
+      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+      
+      rtc.start();
+      float drift = 43; // seconds plus or minus over oservation period - set to 0 to cancel previous calibration.
+      float period_sec = (7 * 86400);  // total obsevation period in seconds (86400 = seconds in 1 day:  7 days = (7 * 86400) seconds )
+      float deviation_ppm = (drift / period_sec * 1000000); //  deviation in parts per million (μs)
+      float drift_unit = 4.34; // use with offset mode PCF8523_TwoHours
+      // float drift_unit = 4.069; //For corrections every min the drift_unit is 4.069 ppm (use with offset mode PCF8523_OneMinute)
+      int offset = round(deviation_ppm / drift_unit);
+      Serial.print("Offset is "); Serial.println(offset); // Print to control offset
+    }
   }
-
-  if (! rtc.initialized() || rtc.lostPower()) {
-    Serial.println("RTC is NOT initialized, let's set the time!");
-
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-
-  rtc.start();
-  float drift = 43; // seconds plus or minus over oservation period - set to 0 to cancel previous calibration.
-  float period_sec = (7 * 86400);  // total obsevation period in seconds (86400 = seconds in 1 day:  7 days = (7 * 86400) seconds )
-  float deviation_ppm = (drift / period_sec * 1000000); //  deviation in parts per million (μs)
-  float drift_unit = 4.34; // use with offset mode PCF8523_TwoHours
-  // float drift_unit = 4.069; //For corrections every min the drift_unit is 4.069 ppm (use with offset mode PCF8523_OneMinute)
-  int offset = round(deviation_ppm / drift_unit);
-
-  Serial.print("Offset is "); Serial.println(offset); // Print to control offset
-
+  return true;
 }
 
-void BH1750_setup()
+bool BH1750_setup()
 {
-    if (!bh1750.begin()) {
-      Serial.println("BH1750 not found !");
-      delay(1000);
+  if (!bh1750.begin()) {
+    Serial.println("BH1750 not found !");
+    //delay(1000);
+    return false;
+  }else{
+    ArtronShop_BH1750_status = true;
   }
+  return true;
 }
 
 void setup() {
@@ -178,7 +190,7 @@ void setup() {
   //Avvio scheduler di FreeRTOS
   vTaskStartScheduler();
 
-  I2C0_Mutex = xSemaphoreCreateMutex();
+  I2C1_Mutex = xSemaphoreCreateMutex();
   /* Non necessari con FreeRTOS (ogni task ha il suo setup())
   BH1750_setup();   //Setup sensore BH1750
   PCF8523_setup();  //Setup sensore PCF8523
@@ -189,22 +201,29 @@ void setup() {
 
 //Task BMP280
 void BMP280(void *params){
-/*setup()*/
-
-//PCF8523_setup(); //da decommentare quando avremo i sensori
-
-/*loop()*/
-while (true)
-{
-  //BMP280_data_read(); //da decommentare quando avremo i sensori
-  if(xSemaphoreTake(I2C0_Mutex, portMAX_DELAY) == pdTRUE)
-  {
-    if (xSemaphoreTake(BMP280_data_Mutex, portMAX_DELAY) == pdTRUE)
+  /*setup()*/
+  if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      while(!PCF8523_setup()) /*tenta il setup del sensore finchè non va a buon fine*/
       {
-        BMP280_data = String(random(0,50)) + "," + String(random(500, 2000)) + "," + String(random(0, 10000));
-        xSemaphoreGive(BMP280_data_Mutex);
+        PCF8523_data = ERROR_SENSOR_SETUP_CODE;
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
       }
-    xSemaphoreGive(I2C0_Mutex);
+    }
+    xSemaphoreGive(I2C1_Mutex);
+
+  /*loop()*/
+  while (true)
+  {
+    //BMP280_data_read(); //da decommentare quando avremo i sensori
+    if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      if (xSemaphoreTake(BMP280_data_Mutex, portMAX_DELAY) == pdTRUE)
+        {
+          BMP280_data = String(random(0,50)) + "," + String(random(500, 2000)) + "," + String(random(0, 10000));
+          xSemaphoreGive(BMP280_data_Mutex);
+        }
+      xSemaphoreGive(I2C1_Mutex);
   }
   vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
 }
@@ -214,22 +233,31 @@ while (true)
 
 //Task BH1750
 void BH1750(void *params){
-/*setup()*/
+  /*setup()*/
+  if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      while (!BH1750_setup) /*tenta il setup del sensore finchè non va a buon fine*/
+      {
+        BH1750_data = ERROR_SENSOR_SETUP_CODE;
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+      }
+    }
+    xSemaphoreGive(I2C1_Mutex);
 
-//BH1750_setup(); //da decommentare quando avremo i sensori
+  //BH1750_setup(); //da decommentare quando avremo i sensori
 
-/*loop()*/
+  /*loop()*/
   while (true)
   {
-    //BH1750_data_read();//da decommentare quando avremo i sensori
-    if(xSemaphoreTake(I2C0_Mutex, portMAX_DELAY) == pdTRUE)
+    if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
     {
       if (xSemaphoreTake(BH1750_data_Mutex, portMAX_DELAY) == pdTRUE)
       {
-        BH1750_data =  random(0.0,1.1);
+        BH1750_data = BH1750_data_read();//da decommentare quando avremo i sensori
+        //BH1750_data =  random(0.0,1.1);
         xSemaphoreGive(BH1750_data_Mutex);
       }
-      xSemaphoreGive(I2C0_Mutex);
+      xSemaphoreGive(I2C1_Mutex);
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
   }
@@ -237,22 +265,29 @@ void BH1750(void *params){
 
 //Task PCF8523
 void PCF8523(void *params){
-/*setup()*/
+  /*setup()*/
+    if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
+    {
+      while(!PCF8523_setup()) /*tenta il setup del sensore finchè non va a buon fine*/
+      {
+        PCF8523_data = ERROR_SENSOR_SETUP_CODE;
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+      }
+    }
+    xSemaphoreGive(I2C1_Mutex);
 
-  //PCF8523_setup(); //da decommentare quando avremo i sensori
-
-/*loop()*/
+  /*loop()*/
   while (true)
   {
-    if(xSemaphoreTake(I2C0_Mutex, portMAX_DELAY) == pdTRUE)
+    if(xSemaphoreTake(I2C1_Mutex, portMAX_DELAY) == pdTRUE)
     {
-      //PCF8523_data_read(); //da decommentare quando avremo i sensori
       if (xSemaphoreTake(PCF8523_data_Mutex, portMAX_DELAY) == pdTRUE)
       {
-        PCF8523_data = millis();
+        PCF8523_data = PCF8523_data_read(); //da decommentare quando avremo i sensori
+        //PCF8523_data = millis();
         xSemaphoreGive(PCF8523_data_Mutex);
       }
-      xSemaphoreGive(I2C0_Mutex);
+      xSemaphoreGive(I2C1_Mutex);
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
   }
@@ -284,9 +319,13 @@ void Tasks_Monitor(void *params){
       BMP280_aux =  BMP280_data;
       xSemaphoreGive(BMP280_data_Mutex);
     }
-
-    Serial.println("|PCF8523: " + String(PCF8523_aux) + " |BH1750: " + String(BH1750_aux) + " |BMP280: " + String(BMP280_aux));
-
+    String sensor_monitor_msg_aux = "|PCF8523: " + String(PCF8523_aux) + " |BH1750: " + String(BH1750_aux) + " |BMP280: " + String(BMP280_aux);
+    
+    if(sensor_monitor_msg != sensor_monitor_msg_aux)
+    {/*Il monitor stampa il i valori dei sensori solo se diversi dalp print precedente*/
+      sensor_monitor_msg = sensor_monitor_msg_aux;
+      Serial.println(sensor_monitor_msg);
+    }
     vTaskDelay(1000 / portTICK_PERIOD_MS); //delay gestito da FreeRTOS
   }
 }
