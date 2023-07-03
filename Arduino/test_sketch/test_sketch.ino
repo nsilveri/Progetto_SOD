@@ -13,8 +13,8 @@
 #include "sensors\BH1750_sensor.hpp"
 #include "sensors\RTC_sensor.hpp"
 
-#define BMP280_DELAY_TASK        50
-#define BH1750_DELAY_TASK        50
+#define BMP280_DELAY_TASK        150
+#define BH1750_DELAY_TASK        100
 #define RTC_DELAY_TASK           50
 #define TASK_MONITOR_DELAY_TASK  500
 
