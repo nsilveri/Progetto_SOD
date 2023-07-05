@@ -8,7 +8,10 @@
 //Librerie Sensori
 #include "RTClib.h"
 
-RTC_PCF8523 rtc;  // I2C1 set in setup()
+bool RTC_LOG = false;
+
+RTC_DS1307 rtc;  // I2C1 set in setup()
+//RTC_PCF8523 rtc;
 
 //unsigned long PCF8523_data = 0;
 
@@ -30,12 +33,43 @@ void RTC_setup()
 Serial.println("3");
 }
 
-String RTC_data_read(){
+String RTC_data_read_old(){
 
   DateTime now = rtc.now();
   char buf2[] = "YYMMDD-hh:mm:ss";
   String ts = now.toString(buf2);
   return ts;
+}
+
+String RTC_data_read()
+{
+  DateTime now = rtc.now();
+
+  if(RTC_LOG == true)
+  {
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print('/');
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+
+    Serial.print(" since midnight 1/1/1970 = ");
+    Serial.print(now.unixtime());
+    Serial.print("s = ");
+    Serial.print(now.unixtime() / 86400L);
+    Serial.println("d");
+  }
+
+  uint32_t TS =  now.unixtime();
+
+   return String(TS);
 }
 
 #endif

@@ -38,13 +38,13 @@ void BH1750_setup()
     Serial.println("BH1750 is connected");
 }
 
-float BH1750_data_read() 
+String BH1750_data_read() 
 {
   float lightIntensity = myBH1750.getLux();
   //Serial.print(F("Light intensity: "));
   //Serial.print(lightIntensity);
   //Serial.println(F(" Lux"));
-  return lightIntensity;
+  return String(String(lightIntensity) + " lux");
 }
 
 /*
