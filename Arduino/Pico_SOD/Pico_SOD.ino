@@ -1,240 +1,357 @@
 //Arduino libraries
 #include <ArduinoJson.h>
+#include <cstring>
+
+#include <Wire.h> // Include the Wire library for I2C communication
+//#include <HardwareSerial.h>
+//#include <SoftwareSerial.h> // Include the SoftwareSerial library for Serial1 communication
+
+#include "sensors\BMP280_sensor.hpp"
+#include "sensors\BH1750_sensor.hpp"
+#include "sensors\RTC_sensor.hpp"
+#include "variables_definition.hpp"
 
 #include <FreeRTOS.h>
 #include <task.h>
 #include <semphr.h>
 
-/*
-  #include "sensors\Adafruit_BMP280_sensor.hpp"
-  #include "sensors\BH1750_sensor.hpp"
-  #include "sensors\RTC_PCF8523_sensor.hpp"
-*/
-#include "sensors\BMP280_sensor.hpp"
-#include "sensors\BH1750_sensor.hpp"
-#include "sensors\RTC_sensor.hpp"
+bool COMMUNICATION_MODE = Serial1_MODE;
+bool MONITOR_LOG = true;
 
-/*
-#define BMP280_TASK_DELAY        150
-#define BH1750_TASK_DELAY        140
-#define RTC_TASK_DELAY           130
-#define TASK_MONITOR_TASK_DELAY  500
-*/
-#define CORE_0 (1 << 0)
-#define CORE_1 (1 << 1)
-
-
-uint16_t BMP280_TASK_DELAY        = 150 + random(0, 20);
-uint16_t BH1750_TASK_DELAY        = 150 + random(0, 20);
-uint16_t RTC_TASK_DELAY           = 150 + random(0, 20);
-uint16_t TASK_MONITOR_TASK_DELAY  = 500 + random(0, 20);
-
-
-#define SLAVE_ADDRESS 0x08 // Indirizzo della Pico in modalità Slave sull'I2C0
-
-/* Dimensions of the buffer that the task being created will use as its stack.
-  NOTE:  This is the number of words the stack will hold, not the number of
-  bytes.  For example, if each stack item is 32-bits, and this is set to 100,
-  then 400 bytes (100 * 32-bits) will be allocated. */
-#define STACK_SIZE 512
-
-/* Structure that will hold the TCB of the task being created. */
-StaticTask_t xTaskBuffer_BMP280;
-StaticTask_t xTaskBuffer_BH1750;
-StaticTask_t xTaskBuffer_RTC;
-StaticTask_t xTaskBuffer_TASK_MONITOR;
-
-/* Buffer that the task being created will use as its stack.  Note this is
-  an array of StackType_t variables.  The size of StackType_t is dependent on
-  the RTOS port. */
-StackType_t xStack_BMP280[ STACK_SIZE ];
-StackType_t xStack_BH1750[ STACK_SIZE ];
-StackType_t xStack_RTC[ STACK_SIZE ];
-StackType_t xStack_TASK_MONITOR[ STACK_SIZE ];
-
-SemaphoreHandle_t xSemaphore      ;
-SemaphoreHandle_t I2C1_Semaphore  ;
-
-SemaphoreHandle_t BH1750_Semaphore;
-SemaphoreHandle_t BMP280_Semaphore;
-SemaphoreHandle_t RTC_Semaphore   ;
-
-StaticSemaphore_t xMutexBuffer;
-
-StaticSemaphore_t xI2C1_MutexBuffer;
-
-StaticSemaphore_t xBH1750_MutexBuffer;
-StaticSemaphore_t xBMP280_MutexBuffer;
-StaticSemaphore_t xRTC_MutexBuffer;
-
-QueueHandle_t data;
-
-String Received_Comand = "";
-String Requested_Data = "";
-
-String BH1750_data  = "NULL";
-String BMP280_data  = "NULL";
-String TimeStamp    = "NULL";
-
-unsigned long startTime;
-
+//SoftwareSerial Serial1(Serial1_TX_PIN, Serial1_RX_PIN);
 
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  Wire.setSDA(4);
-  Wire.setSCL(5);
+  Wire.setSDA(I2C0_SDA_PIN);
+  Wire.setSCL(I2C0_SCL_PIN);
+  Wire.setClock(I2C0_CLOCK);
+  Wire.setTimeout(I2C0_TIMEOUT);
+
+  //if(COMMUNICATION_MODE == I2C_MODE){
   Wire.begin(SLAVE_ADDRESS);
   Wire.onReceive(receiveData);
-  Wire.onRequest(sendData);
+  //Wire.onReceive(receiveEvent);
+  //Wire.onRequest(sendData);
+  //}
+
+  // Create a SoftwareSerial object for Serial1 communication
+  //Serial1.setPinout(Serial1_TX_PIN, Serial1_RX_PIN);
+  //Serial1.begin(115200);
+  //if(COMMUNICATION_MODE == Serial1_MODE){
+  //Serial1.setRX(Serial1_RX_PIN);
+  //Serial1.setTX(Serial1_TX_PIN);
+  //  //Serial1.setFIFOSize(128);
+  //  Serial1.setPinout(Serial1_TX_PIN, Serial1_RX_PIN);
+  //  //Serial1.begin(115200, SERIAL_8N1, 12, 13);
+  //Serial1.begin(115200);
+  //  //Serial1.begin(9600);
+  //}
+  
 
   //Definizione PIN ed inizializzazione I2C1 in Master
-  Wire1.setSDA(2);
-  Wire1.setSCL(3);
+  Wire1.setSDA(I2C1_SDA_PIN);
+  Wire1.setSCL(I2C1_SCL_PIN);
   Wire1.begin();
 
   delay(2000);
   Serial.println(F("Avvio...."));
   delay(500);
 
-  Serial.println(F("Setup BMP280...."));
-  BMP280_setup();
-  delay(500);
-
-  Serial.println(F("Setup BH1750...."));
-  BH1750_setup();
-  delay(500);
-  
-  Serial.println(F("Setup RTC...."));
-  RTC_setup();
-  delay(500);
-
   startTime = millis();  // Salva il tempo di avvio iniziale
 
-
-  /* Create a mutex semaphore without using any dynamic memory
-    allocation.  The mutex's data structures will be saved into
-    the xMutexBuffer variable. */
-  //xSemaphore       = xSemaphoreCreateMutexStatic( &xMutexBuffer );
-
-  BH1750_Semaphore = xSemaphoreCreateMutexStatic( &xBH1750_MutexBuffer );
-  BMP280_Semaphore = xSemaphoreCreateMutexStatic( &xBMP280_MutexBuffer );
-  RTC_Semaphore    = xSemaphoreCreateMutexStatic( &xRTC_MutexBuffer );
+  BMP_TEMP_QUEUE    = xQueueCreate(1000, sizeof(String*));
+  BMP_PRESS_QUEUE   = xQueueCreate(1000, sizeof(String*));
+  BMP_ALT_QUEUE     = xQueueCreate(1000, sizeof(String*));
+  BH1750_QUEUE      = xQueueCreate(1000, sizeof(String*));
+  TIMESTAMP_QUEUE   = xQueueCreate(1000, sizeof(String*));
+  
+  //BH1750_Semaphore = xSemaphoreCreateMutexStatic( &xBH1750_MutexBuffer );
+  //BMP280_Semaphore = xSemaphoreCreateMutexStatic( &xBMP280_MutexBuffer );
+  //RTC_Semaphore    = xSemaphoreCreateMutexStatic( &xRTC_MutexBuffer );
 
   I2C1_Semaphore   = xSemaphoreCreateMutexStatic( &xMutexBuffer );
 
-  /*
-    xTaskCreateStatic(BMP280_Task,       "BMP280_Task",       STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_BMP280,       &xTaskBuffer_BMP280);
-    xTaskCreateStatic(BH1750_Task,       "BH1750_Task",       STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_BH1750,       &xTaskBuffer_BH1750);
-    xTaskCreateStatic(RTC_Task,          "RTC_Task",          STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_RTC,          &xTaskBuffer_RTC);
-    xTaskCreateStatic(TASK_MONITOR_Task, "TASK_MONITOR_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 2, xStack_TASK_MONITOR, &xTaskBuffer_TASK_MONITOR);
-  */
-  
-  xTaskCreateStaticAffinitySet(BMP280_Task,       "BMP280_Task",       STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_BMP280,       &xTaskBuffer_BMP280,       1);
-  xTaskCreateStaticAffinitySet(BH1750_Task,       "BH1750_Task",       STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_BH1750,       &xTaskBuffer_BH1750,       1);
-  xTaskCreateStaticAffinitySet(RTC_Task,          "RTC_Task",          STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_RTC,          &xTaskBuffer_RTC,          1);
-  xTaskCreateStaticAffinitySet(TASK_MONITOR_Task, "TASK_MONITOR_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 1, xStack_TASK_MONITOR, &xTaskBuffer_TASK_MONITOR, 1);
+  xTaskCreate(BMP280_Task,           "BMP280_Task",                STACK_SIZE, NULL, configMAX_PRIORITIES - 3, &BMP280_xHandle );
+  xTaskCreate(BH1750_Task,           "BH1750_Task",                STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &BH1750_xHandle);
+  xTaskCreate(RTC_Task,              "RTC_Task",                   STACK_SIZE, NULL, configMAX_PRIORITIES - 4, &RTC_xHandle);
+  xTaskCreate(TASK_MONITOR_Task,     "TASK_MONITOR_Task",          STACK_SIZE, NULL, configMAX_PRIORITIES - 1, &Task_monitor_xHandle);
 
+  //vTaskStartScheduler();
+  //if(COMMUNICATION_MODE == Serial1_MODE){
+  //    xTaskCreate(Serial1_Communication, "Serial1_Communication_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 1, &Serial1_Communication_xHandle);
+  //}
+}
+
+void Serial1_Communication(void *pvParameters) {
+  while (Serial1.available()) {
+    char data = Serial1.read();
+    Serial.print("Serial1 MSG RECEIVED: ");
+    Serial.println(data);
+  }
+  
 }
 
 void BMP280_Task(void *pvParameters)
 {
   (void) pvParameters;
-  /*
-      SETUP HERE
-      xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-      BMP280_setup();
-      xSemaphoreGive( I2C1_Semaphore );
-  */
-  ////vTaskDelay(BMP280_TASK_DELAY / portTICK_PERIOD_MS);
-  //Serial.println(F("11|"));
+
+  Serial.println(F("Setup BMP280...."));
+  BMP280_setup();
+  delay(500);
 
   while (1)
   {
     vTaskDelay(BMP280_TASK_DELAY / portTICK_PERIOD_MS);
-    xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-    /*
-        LOOP HERE
-    */
-    xSemaphoreTake( BMP280_Semaphore, ( TickType_t ) portMAX_DELAY );
-    BMP280_data = BMP280_data_read();
-    xSemaphoreGive( BMP280_Semaphore );
+    //float BMP280_data[3];
+    semphrTakeConditional()
+    if(xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY ) == pdTRUE)
+    {
+      BMP_TEMP_VALUE = BMP280_data_temp();
+      BMP_PRESS_VALUE= BMP280_data_press();
+      BMP_ALT_VALUE  = BMP280_data_alt();
 
-    xSemaphoreGive( I2C1_Semaphore );
+      //Serial.println(BMP280_data[0]);
+      xSemaphoreGive( I2C1_Semaphore );
+
+      // Inserisci il valore nella coda BMP280_queue
+      if(xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
+        xQueueReset(BMP_TEMP_QUEUE);                               // Inserisci il nuovo valore nella coda
+      xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, portMAX_DELAY);
+        }
+    
+      if(xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
+        xQueueReset(BMP_PRESS_QUEUE);                               // Inserisci il nuovo valore nella coda
+      xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, portMAX_DELAY);
+        }
+
+      if(xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
+        xQueueReset(BMP_ALT_QUEUE);                               // Inserisci il nuovo valore nella coda
+      xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, portMAX_DELAY);
+        }
+
+    }else {
+      return;
+    }
   }
 }
 
 void BH1750_Task(void *pvParameters)
 {
   (void) pvParameters;
-  /*
-      SETUP HERE
-      xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-      BH1750_setup();
-      xSemaphoreGive( I2C1_Semaphore );
-  */
-  ////vTaskDelay(BH1750_TASK_DELAY / portTICK_PERIOD_MS);
-  
+
+  Serial.println(F("Setup BH1750...."));
+  BH1750_setup();
+  delay(500);
 
   while (1)
   {
     vTaskDelay(BH1750_TASK_DELAY / portTICK_PERIOD_MS);
-    xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-    /*
-        LOOP HERE
-    */
-    xSemaphoreTake( BH1750_Semaphore, ( TickType_t ) portMAX_DELAY );
-    BH1750_data = BH1750_data_read();
-    xSemaphoreGive( BH1750_Semaphore );
+    if(xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY ) == pdTRUE)
+    {
+      BH1750_LUX_VALUE = BH1750_data_read();
+      xSemaphoreGive( I2C1_Semaphore );
 
-    xSemaphoreGive( I2C1_Semaphore );
+      //Inserisci il valore nella coda BH1750_queue
+      if(xQueueSend(BH1750_QUEUE, &BH1750_LUX_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
+        xQueueReset(BH1750_QUEUE);                               // Inserisci il nuovo valore nella coda
+      xQueueSend(BH1750_QUEUE, &BH1750_LUX_VALUE, portMAX_DELAY);
+        }
+        
+    }else  {
+      return;
+    }
   }
 }
 
 void RTC_Task(void *pvParameters)
 {
   (void) pvParameters;
-  /*
-      SETUP HERE
-      xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-      RTC_setup();
-      xSemaphoreGive( I2C1_Semaphore );
-  */
-  ////vTaskDelay(RTC_TASK_DELAY / portTICK_PERIOD_MS);
-  
+
+  Serial.println(F("Setup RTC...."));
+  RTC_setup();
+  delay(500);
 
   while (1)
   {
     vTaskDelay(RTC_TASK_DELAY / portTICK_PERIOD_MS);
-    xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
-    /*
-        LOOP HERE
-    */
-    xSemaphoreTake( RTC_Semaphore, ( TickType_t ) portMAX_DELAY );
-    TimeStamp = RTC_data_read();
-    xSemaphoreGive( RTC_Semaphore );
-    xSemaphoreGive( I2C1_Semaphore );
+    if(xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY ) == pdTRUE)
+    {
+      RTC_DATA_VALUE = RTC_data_read();
+      xSemaphoreGive( I2C1_Semaphore );
+      //Serial.println("RTC_DATA_VALUE: " + String(RTC_DATA_VALUE));
+    }else {
+      return;
+    }
+
+
+    // Inserisci il valore nella coda TimeStamp_queue
+    if(xQueueSend(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) != pdPASS) {// La coda è piena, svuotala
+        //Serial.println("CODA PIENA");
+        xQueueReset(TIMESTAMP_QUEUE);                                // Inserisci il nuovo valore nella coda
+        //Serial.println("CODA RESETTATA");
+      xQueueSend(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, portMAX_DELAY);
+        //Serial.println("CODA CON NUOVO DATO");
+      }else Serial.println("CODA NON AGGIORNATA");
   }
 }
 
 //CallBack, parte in automatico quando ci sono richieste sul'I2C0
+
+void splitDateString(const String& dateString, uint16_t& year, uint8_t& month, uint8_t& day, uint8_t& hour, uint8_t& minute, uint8_t& second) {
+  year    =   (dateString.substring(0, 4)).toInt();
+  month   =   (dateString.substring(5, 7)).toInt();
+  day     =   (dateString.substring(8, 10)).toInt();
+  hour    =   (dateString.substring(11, 13)).toInt();
+  second  =   (dateString.substring(17, 19)).toInt();
+  minute  =   (dateString.substring(14, 16)).toInt();
+}
+
+/*
+void receiveEvent(int howMany)
+{
+  while(1 < Wire.available()) // loop through all but the last
+  {
+    char c = Wire.read(); // receive byte as a character
+    Serial.print(c);         // print the character
+  }
+  int x = Wire.read();    // receive byte as an integer
+  Serial.println(x);         // print the integer
+}
+*/
+
 void receiveData(int byteCount) {
-  while (Wire.available()) {
+
+  while (0 < Wire.available()) {
+
     char data = Wire.read();
-    // Elabora i dati ricevuti come necessario
-    Serial.print("Comando ricevuto: ");
-    Serial.println(data);
-    Received_Comand += data;
+    Serial.println("data: " + String(data));
+
+    if(data == 'A' || data == 'B' || data == 'C' || data == 'D' || data == 'E' ){
+      Received_Comand = data;
+      data_string = "";
+    }else if(data == 'F'){
+      data_string = "";
+      return;
+    }else{
+      data_string += String(data);
+      if(data_string.length() == 19){
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;
+        uint8_t minute; 
+        uint8_t second;
+        Serial.println("adjusting rtc...: ");
+        splitDateString(data_string, year, month, day, hour, minute, second);
+
+        DateTime dt(year, month, day, hour, minute, second);
+        rtc.adjust(dt);
+      }
+      sendData_I2C();
+    }    
+    //Serial.println("Received_Comand: " + String(Received_Comand));
+    //Serial.println("data_string: " + String(data_string));
+    
   }
 }
 
-void sendData() {
-  for (size_t i = 0; i < Requested_Data.length(); i++) {
-    Wire.write(Requested_Data[i]);
-  Requested_Data = "";
+/*
+void sendData_Serial1() {
+  Serial.println("Requested_Data: " + String(Received_Comand));
+
+  switch (Received_Comand) {
+    case BMP_TEMP_REG:
+      if (xQueueReceive(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 100) == pdPASS) {
+        Serial1.write((byte)BMP_TEMP_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BMP_PRESS_REG:
+      if (xQueueReceive(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 100) == pdPASS) {
+        Serial1.write((byte)BMP_PRESS_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BMP_ALT_REG:
+      if (xQueueReceive(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 100) == pdPASS) {
+        Serial1.write((byte)BMP_ALT_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BH1750_LUX_REG:
+      if (xQueueReceive(BH1750_QUEUE, &BH1750_LUX_VALUE, 100) == pdPASS) {
+        Serial1.write((byte)BH1750_LUX_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    default:
+      // Richiesta non valida, invia messaggio di errore
+      Serial.println("INVALID REQUEST!");
+      String errorMessage = "Error occurred";
+      data_string = "";
+      Serial1.write(errorMessage.c_str());
+      break;
   }
 }
+*/
+
+void sendData_I2C() {
+  Serial.println("Requested_Data: " + String(Received_Comand));
+
+  switch (Received_Comand) {
+    case BMP_TEMP_REG:
+      if (xQueueReceive(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 1) == pdPASS) {
+        Wire.write((byte)BMP_TEMP_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BMP_PRESS_REG:
+      if (xQueueReceive(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 1) == pdPASS) {
+        Wire.write((byte)BMP_PRESS_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BMP_ALT_REG:
+      if (xQueueReceive(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 1) == pdPASS) {
+        Wire.write((byte)BMP_ALT_VALUE);
+      }
+      data_string = "";
+      break;
+      
+    case BH1750_LUX_REG:
+      if (xQueueReceive(BH1750_QUEUE, &BH1750_LUX_VALUE, 1) == pdPASS) {
+        Wire.write((byte)BH1750_LUX_VALUE);
+      }
+      data_string = "";
+      break;
+    case RTC_REG:
+      if (xQueueReceive(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) == pdPASS) {
+        Wire.write((byte)RTC_DATA_VALUE);
+        Serial.print("RTC_DATA_VALUE: ");
+        Serial.println(String(RTC_DATA_VALUE));
+      }
+      data_string = "";
+      break;
+      
+    default:
+      // Richiesta non valida, invia messaggio di errore
+      Serial.println("INVALID REQUEST!");
+      String errorMessage = "Error occurred";
+      data_string = "";
+      Wire.write(errorMessage.c_str(), errorMessage.length());
+      break;
+  }
+}
+
+
 
 String generateJsonString(String name, String data, String timestamp) {
 
@@ -250,15 +367,42 @@ String generateJsonString(String name, String data, String timestamp) {
 }
 
 void sys_timer() {
-  unsigned long currentTime = millis();  // Ottieni il tempo corrente
-  unsigned long elapsedTime = currentTime - startTime;  // Calcola il tempo trascorso
-
-  unsigned int seconds = elapsedTime / 1000;  // Converti il tempo in secondi
-
-  Serial.println(seconds);  // Stampa i secondi su Serial Monitor
-
-  delay(1000);  // Attendiamo un secondo prima di calcolare nuovamente i secondi
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime = currentTime - startTime;
+  unsigned int seconds = elapsedTime / 1000;
+  Serial.println(seconds);
+  delay(1000);
 }
+
+void LED_Control(bool* LED_ON_OFF) {
+  if (digitalRead(LED_BUILTIN) == HIGH) {
+    digitalWrite(LED_BUILTIN, LOW);
+    *LED_ON_OFF = false;
+  } else if (digitalRead(LED_BUILTIN) == LOW) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    *LED_ON_OFF = true;
+  }
+}
+
+/*
+void printQueue()
+{
+  UBaseType_t queueLength = uxQueueMessagesWaiting(BMP_TEMP_QUEUE);
+  Serial.print("Number of elements in the queue: ");
+  Serial.println(queueLength);
+
+  // Dichiarazione di una variabile per ricevere i messaggi dalla coda
+  BaseType_t item;
+
+  // Loop per estrarre e stampare gli elementi dalla coda
+  while (xQueuePeek(BMP_TEMP_QUEUE, &item, 1) == pdTRUE)
+  {
+    Serial.print("Queue item: ");
+    Serial.println(item);
+    xQueueReceive(BMP_TEMP_QUEUE, &item, 1); // Rimuovi l'elemento dalla coda
+  }
+}
+*/
 
 void TASK_MONITOR_Task(void *pvParameters)
 {
@@ -266,79 +410,101 @@ void TASK_MONITOR_Task(void *pvParameters)
   /*
       SETUP HERE
   */
-  String monitor_message = "";
+
+  Serial.println(F("TASK MONITOR started..."));
+
   bool LED_ON_OFF = false;
+
+  String TEMP_BMP280_MONITOR  = "";
+  String PRESS_BMP280_MONITOR = "";
+  String ALT_BMP280_MONITOR   = "";
+  String BH1750_MONITOR       = "";
+  String RTC_MONITOR          = "";
 
   while (1)
   {
+    LED_Control(&LED_ON_OFF);
+    
+    /*
     BMP280_TASK_DELAY        = 150 + random(0, 20);
     BH1750_TASK_DELAY        = 150 + random(0, 20);
     RTC_TASK_DELAY           = 150 + random(0, 20);
     TASK_MONITOR_TASK_DELAY  = 500 + random(0, 20);
-    
-    vTaskDelay(TASK_MONITOR_TASK_DELAY / portTICK_PERIOD_MS);
-    //xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY );
+    */
+
     /*
         LOOP HERE
     */
-    xSemaphoreTake( BMP280_Semaphore, ( TickType_t ) portMAX_DELAY );
-    String BMP280_monitor = generateJsonString("BMP280: ", BMP280_data, TimeStamp);
-    //Serial.println(BMP280_monitor);
-    xSemaphoreGive( BMP280_Semaphore );
+    vTaskDelay(TASK_MONITOR_TASK_DELAY / portTICK_PERIOD_MS);
 
-    xSemaphoreTake( BH1750_Semaphore, ( TickType_t ) portMAX_DELAY );
-    String BH1750_monitor = generateJsonString("BH1750: ", String(BH1750_data), TimeStamp);
-    //Serial.println(BH1750_monitor);
-    xSemaphoreGive( BH1750_Semaphore );
     
-    xSemaphoreTake( RTC_Semaphore, ( TickType_t ) portMAX_DELAY );
-    String RTC_monitor = generateJsonString("RTC: ", TimeStamp, TimeStamp);
-    //Serial.println(RTC_monitor);
-    xSemaphoreGive( RTC_Semaphore );
-
-    String monitor_message_aux = BMP280_monitor + BH1750_monitor + RTC_monitor;
-    String BMP280_monitor_aux = "";
-    String BH1750_monitor_aux = "";
-    String RTC_monitor_aux = "";
-
-    if(BMP280_monitor_aux != BMP280_monitor)
-    {
-      Serial.println(BMP280_monitor);
+    if (xQueuePeek(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 100) == pdTRUE) {
+      TEMP_BMP280_MONITOR = BMP_TEMP_VALUE;//generateJsonString("BMP280: ", String(BMP_TEMP_VALUE), String(RTC_DATA_VALUE));
     }
 
-    if(BH1750_monitor_aux != BH1750_monitor)
-    {
-      Serial.println(BH1750_monitor);
+    if (xQueuePeek(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 100) == pdTRUE) {
+      PRESS_BMP280_MONITOR = BMP_PRESS_VALUE; //generateJsonString("BMP280: ", String(BMP_PRESS_VALUE), String(RTC_DATA_VALUE));
     }
 
-    if(RTC_monitor_aux != RTC_monitor)
-    {
-      Serial.println(RTC_monitor);
-    }
-    Serial.println("======DELAY================================================");
-    Serial.println("|BH1750: " + String(BH1750_TASK_DELAY) + "ms |BMP: " + String(BMP280_TASK_DELAY) + "ms |RTC: " + String(RTC_TASK_DELAY) + "ms |TSK: " + String(TASK_MONITOR_TASK_DELAY) + "ms");  
-    Serial.println("=========================================| Uptime sys: " + String(millis() / 1000) + "s");
-
-    if(digitalRead(LED_BUILTIN) == HIGH)
-    {
-      digitalWrite(LED_BUILTIN, LOW);
-      LED_ON_OFF = false;
-    }else if(digitalRead(LED_BUILTIN) == LOW)
-    {
-      digitalWrite(LED_BUILTIN, HIGH);
-      LED_ON_OFF = true;
+    if (xQueuePeek(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 100) == pdTRUE) {
+      ALT_BMP280_MONITOR = BMP_ALT_VALUE; //generateJsonString("BMP280: ", String(BMP_ALT_VALUE), String(RTC_DATA_VALUE));
     }
 
-    /*
-        if(monitor_message != monitor_message_aux)
-    {
-        monitor_message = monitor_message_aux;
-        Serial.println(monitor_message);
+    if (xQueuePeek(BH1750_QUEUE, &BH1750_LUX_VALUE, 100) == pdTRUE) {
+      BH1750_MONITOR = BH1750_LUX_VALUE; //generateJsonString("BH1750: ", String(BH1750_LUX_VALUE), String(RTC_DATA_VALUE));
     }
-    */
 
+    if (xQueuePeek(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) == pdTRUE) {
+      RTC_MONITOR = RTC_DATA_VALUE; //generateJsonString("RTC: ", String(RTC_DATA_VALUE), String(RTC_DATA_VALUE));
+    }
 
-    //xSemaphoreGive( I2C1_Semaphore );
+    String TEMP_BMP280_MONITOR_AUX  = "";
+    String PRESS_BMP280_MONITOR_AUX = "";
+    String ALT_BMP280_MONITOR_AUX   = "";
+    String BH1750_MONITOR_AUX       = "";
+    String RTC_MONITOR_AUX          = "";
+
+    if(MONITOR_LOG){
+        if(TEMP_BMP280_MONITOR_AUX != TEMP_BMP280_MONITOR)
+            {
+                Serial.print("|TEMP: ");
+                Serial.println(TEMP_BMP280_MONITOR);
+                TEMP_BMP280_MONITOR_AUX = TEMP_BMP280_MONITOR;
+            }
+
+        if(PRESS_BMP280_MONITOR_AUX != PRESS_BMP280_MONITOR)
+            {
+                Serial.print("|PRESS: ");
+                Serial.println(PRESS_BMP280_MONITOR);
+                PRESS_BMP280_MONITOR_AUX = PRESS_BMP280_MONITOR;
+            }
+        if(ALT_BMP280_MONITOR_AUX != ALT_BMP280_MONITOR)
+            {
+                Serial.print("|ALT: ");
+                Serial.println(ALT_BMP280_MONITOR);
+                ALT_BMP280_MONITOR_AUX = ALT_BMP280_MONITOR;
+            }
+
+        if(BH1750_MONITOR_AUX != BH1750_MONITOR)
+            {
+                Serial.print("|LUX: ");
+                Serial.println(BH1750_MONITOR);
+                BH1750_MONITOR_AUX = BH1750_MONITOR;
+            }
+
+        if(RTC_MONITOR_AUX != RTC_MONITOR)
+            {
+                Serial.print("|RTC: ");
+                Serial.println(RTC_MONITOR);
+                RTC_MONITOR_AUX = RTC_MONITOR;
+            }
+
+        Serial.println("======DELAY================================================");
+        Serial.println("|BH1750: " + String(BH1750_TASK_DELAY) + "ms |BMP: " + String(BMP280_TASK_DELAY) + "ms |RTC: " + String(RTC_TASK_DELAY) + "ms |TSK: " + String(TASK_MONITOR_TASK_DELAY) + "ms");  
+        Serial.println("=========================================| Uptime sys: " + String(millis() / 1000) + "s");
+        
+        //printQueue();
+    }
   }
 }
 

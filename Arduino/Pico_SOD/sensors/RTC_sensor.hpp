@@ -20,17 +20,14 @@ bool RTC_PCF8523_status = false;
 
 void RTC_setup()
 {
-  Serial.println("1");
   if (! rtc.begin(&Wire1)) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
   }
-  Serial.println("2");
   if (! rtc.isrunning()) {
     Serial.println("RTC is NOT running, let's set the time!");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-Serial.println("3");
 }
 
 String RTC_data_read_old(){
@@ -41,7 +38,7 @@ String RTC_data_read_old(){
   return ts;
 }
 
-String RTC_data_read()
+int RTC_data_read()
 {
   DateTime now = rtc.now();
 
@@ -59,17 +56,16 @@ String RTC_data_read()
     Serial.print(':');
     Serial.print(now.second(), DEC);
     Serial.println();
-
-    Serial.print(" since midnight 1/1/1970 = ");
     Serial.print(now.unixtime());
     Serial.print("s = ");
     Serial.print(now.unixtime() / 86400L);
     Serial.println("d");
   }
 
-  uint32_t TS =  now.unixtime();
+  int TS =  now.unixtime();
+  //Serial.print("TS: " + String(TS));
 
-   return String(TS);
+  return TS;
 }
 
 #endif

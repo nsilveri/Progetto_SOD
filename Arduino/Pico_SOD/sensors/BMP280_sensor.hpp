@@ -37,8 +37,8 @@ void BMP280_setup()
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 }
-
-String BMP280_data_read()
+/*
+float BMP280_data_read()
 {
 
  float temp = bmp.readTemperature();
@@ -49,7 +49,25 @@ String BMP280_data_read()
 
  return sensor_data;
 }
+*/
 
+float BMP280_data_temp()
+{
+  float temp = bmp.readTemperature();
+  return temp;
+}
+
+float BMP280_data_press()
+{
+  float bar  = bmp.readPressure();
+  return bar;
+}
+
+float BMP280_data_alt()
+{
+  float alt  = bmp.readAltitude();
+  return alt;
+}
 /*
   //Task BMP280
 void BMP280(void *params){

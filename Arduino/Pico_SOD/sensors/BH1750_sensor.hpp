@@ -33,18 +33,14 @@ void BH1750_setup()
   while(!myBH1750.init()){ // sets default values: mode = CHM, measuring time factor = 1.0
     Serial.println("Connection to the BH1750 failed");
     Serial.println("Check wiring and I2C address");
-    //while(1){}
   }
     Serial.println("BH1750 is connected");
 }
 
-String BH1750_data_read() 
+float BH1750_data_read() 
 {
   float lightIntensity = myBH1750.getLux();
-  //Serial.print(F("Light intensity: "));
-  //Serial.print(lightIntensity);
-  //Serial.println(F(" Lux"));
-  return String(String(lightIntensity) + " lux");
+  return lightIntensity;
 }
 
 /*
