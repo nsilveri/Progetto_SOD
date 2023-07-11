@@ -2,9 +2,9 @@
 #include <ArduinoJson.h>
 #include <cstring>
 
-#include <Wire.h> // Include the Wire library for I2C communication
+#include <Wire.h> 
 //#include <HardwareSerial.h>
-//#include <SoftwareSerial.h> // Include the SoftwareSerial library for Serial1 communication
+//#include <SoftwareSerial.h>
 
 #include "sensors\BMP280_sensor.hpp"
 #include "sensors\BH1750_sensor.hpp"
@@ -104,8 +104,7 @@ void BMP280_Task(void *pvParameters)
   while (1)
   {
     vTaskDelay(BMP280_TASK_DELAY / portTICK_PERIOD_MS);
-    //float BMP280_data[3];
-    semphrTakeConditional()
+
     if(xSemaphoreTake( I2C1_Semaphore, ( TickType_t ) portMAX_DELAY ) == pdTRUE)
     {
       BMP_TEMP_VALUE = BMP280_data_temp();
@@ -116,19 +115,19 @@ void BMP280_Task(void *pvParameters)
       xSemaphoreGive( I2C1_Semaphore );
 
       // Inserisci il valore nella coda BMP280_queue
-      if(xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
-        xQueueReset(BMP_TEMP_QUEUE);                               // Inserisci il nuovo valore nella coda
-      xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, portMAX_DELAY);
+      if(xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 0) == pdPASS) { 
+          xQueueReset(BMP_TEMP_QUEUE);                               
+          xQueueSend(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, portMAX_DELAY);
         }
     
-      if(xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
-        xQueueReset(BMP_PRESS_QUEUE);                               // Inserisci il nuovo valore nella coda
-      xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, portMAX_DELAY);
+      if(xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 0) == pdPASS) {
+          xQueueReset(BMP_PRESS_QUEUE);                               
+          xQueueSend(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, portMAX_DELAY);
         }
 
-      if(xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 0) == pdPASS) { // La coda è piena, svuotala
-        xQueueReset(BMP_ALT_QUEUE);                               // Inserisci il nuovo valore nella coda
-      xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, portMAX_DELAY);
+      if(xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 0) == pdPASS) {
+          xQueueReset(BMP_ALT_QUEUE);                               
+          xQueueSend(BMP_ALT_QUEUE, &BMP_ALT_VALUE, portMAX_DELAY);
         }
 
     }else {
@@ -187,9 +186,9 @@ void RTC_Task(void *pvParameters)
 
 
     // Inserisci il valore nella coda TimeStamp_queue
-    if(xQueueSend(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) != pdPASS) {// La coda è piena, svuotala
+    if(xQueueSend(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) != pdPASS) {
         //Serial.println("CODA PIENA");
-        xQueueReset(TIMESTAMP_QUEUE);                                // Inserisci il nuovo valore nella coda
+        xQueueReset(TIMESTAMP_QUEUE);
         //Serial.println("CODA RESETTATA");
       xQueueSend(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, portMAX_DELAY);
         //Serial.println("CODA CON NUOVO DATO");
