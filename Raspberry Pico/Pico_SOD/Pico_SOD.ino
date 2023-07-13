@@ -233,98 +233,55 @@ void receiveData_new(int byteCount) {
   }
 }
 
+void string_to_byte_array(String Sync_Time_String, byte byteArray[])
+{
+  char* token = strtok(const_cast<char*>(Sync_Time_String.c_str()), ",");
+  int index = 0;
+
+  while (token != NULL && index < 4) {
+    byteArray[index++] = atoi(token);
+    token = strtok(NULL, ",");
+  }
+  Serial.print("byteArray: ");
+  Serial.print(String(byteArray[0]) + ", ");
+  Serial.print(String(byteArray[1]) + ", ");
+  Serial.print(String(byteArray[2]) + ", ");
+  Serial.println(String(byteArray[3])); 
+}
+
 void receiveData(int byteCount) {
+  bool SYNC_TS = false;
   uint8_t _count = 0;
+  Sync_Time_String = "";
+  byte byteArray[4];
+  
   while (0 < Wire.available()) {
     _count++;
     char data = Wire.read();
     Serial.println("data: " + String(data));
     Serial.println("count: " + String(_count));
 
-    if(data == BMP_TEMP_REG || data == BMP_PRESS_REG || data == BMP_ALT_REG || data == BH1750_LUX_REG || data == RTC_REG){
+    if((data == BMP_TEMP_REG || data == BMP_PRESS_REG || data == BMP_ALT_REG || data == BH1750_LUX_REG || data == RTC_REG) && !SYNC_TS){
       Received_Comand = data;
       data_string = "";
-    }else if(data == SYNC_TIME){
+    }else if(data == SYNC_TIME && !SYNC_TS){
+      SYNC_TS = true;
       Received_Comand = data;
-    }else{
-      Sync_Time_String += String(data);
+    }else if(SYNC_TS){
+      Sync_Time_String += byte(data);
+      if(_count != 5){
+        Sync_Time_String += ",";
+      }
       Serial.print("Sync_Time_String: ");
       Serial.println(Sync_Time_String); 
     }
-    
-    /*
-    if(data == SYNC_TIME){
-      Received_Comand = data;
-      }
-     // data_string = "";
-     // return;
-     // }
-     else{
-      data_string += String(data);
-      if(data_string.length() == 19){
-        uint16_t year;
-        uint8_t month;
-        uint8_t day;
-        uint8_t hour;
-        uint8_t minute; 
-        uint8_t second;
-        Serial.println("adjusting rtc...: ");
-        splitDateString(data_string, year, month, day, hour, minute, second);
-
-        DateTime dt(year, month, day, hour, minute, second);
-        rtc.adjust(dt);
-      }*/
-      //sendData_I2C();
-    //}    
-    //Serial.println("Received_Comand: " + String(Received_Comand));
-    //Serial.println("data_string: " + String(data_string));
-    
   }
-}
-
-/*
-void sendData_Serial1() {
-  Serial.println("Requested_Data: " + String(Received_Comand));
-
-  switch (Received_Comand) {
-    case BMP_TEMP_REG:
-      if (xQueueReceive(BMP_TEMP_QUEUE, &BMP_TEMP_VALUE, 100) == pdPASS) {
-        Serial1.write((byte)BMP_TEMP_VALUE);
-      }
-      data_string = "";
-      break;
-      
-    case BMP_PRESS_REG:
-      if (xQueueReceive(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 100) == pdPASS) {
-        Serial1.write((byte)BMP_PRESS_VALUE);
-      }
-      data_string = "";
-      break;
-      
-    case BMP_ALT_REG:
-      if (xQueueReceive(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 100) == pdPASS) {
-        Serial1.write((byte)BMP_ALT_VALUE);
-      }
-      data_string = "";
-      break;
-      
-    case BH1750_LUX_REG:
-      if (xQueueReceive(BH1750_QUEUE, &BH1750_LUX_VALUE, 100) == pdPASS) {
-        Serial1.write((byte)BH1750_LUX_VALUE);
-      }
-      data_string = "";
-      break;
-      
-    default:
-      // Richiesta non valida, invia messaggio di errore
-      Serial.println("INVALID REQUEST!");
-      String errorMessage = "Error occurred";
-      data_string = "";
-      Serial1.write(errorMessage.c_str());
-      break;
+  if(SYNC_TS){
+    string_to_byte_array(Sync_Time_String, byteArray);
   }
+  
+  SYNC_TS = false;
 }
-*/
 
 void sendData_I2C() {
   Serial.println("Requested_Data: " + String(Received_Comand));
@@ -376,93 +333,6 @@ void sendData_I2C() {
   
 }
 
-/*
-void sendData_I2C_QUEUE() {
-  Serial.println("Requested_Data: " + String(Received_Comand));
-  //vTaskDelay(500);
-  
-  uint8_t val = 10;
-  float test = 10.0;
-  //Wire.write((byte)val);
-  //Wire.write((byte)BMP_TEMP_VALUE);
-  
-  switch (Received_Comand) {
-    case BMP_TEMP_REG: //A , 0x41
-      Serial.println("In CASE A");
-      test = 10;
-      //Wire.write((byte)val);
-      //xQueueSend(TEST_QUEUE, &test, 0);
-      Serial.println("QUI ARRIVA");
-      if(xQueueReceive(TEST_QUEUE, &test, 0) == pdPASS) {
-        val = 10;
-        //Wire.write((byte)val);
-        Wire.write((byte)BMP_TEMP_VALUE);
-      }else {
-        Serial.println("CODA VUOTA");
-        Wire.write((byte)ERROR_CODE);
-      }
-      data_string = "";
-      break;
-      
-    case BMP_PRESS_REG: //B , 0x42
-      Serial.println("In CASE B");
-        val = 11;
-        Wire.write((byte)val);
-      //if (xQueueReceive(BMP_PRESS_QUEUE, &BMP_PRESS_VALUE, 1) == pdPASS) {
-      //  uint8_t val = 11;
-      //  Wire.write((byte)val);
-      //  //Wire.write((byte)BMP_PRESS_VALUE);
-      //}else Wire.write((byte)ERROR_CODE);
-      //data_string = "";
-      break;
-      
-    case BMP_ALT_REG: //C , 0x43
-      Serial.println("In CASE C");
-      val = 12;
-      Wire.write((byte)val);
-      //if (xQueueReceive(BMP_ALT_QUEUE, &BMP_ALT_VALUE, 1) == pdPASS) {
-      //  uint8_t val = 12;
-      //  Wire.write((byte)val);
-      //  //Wire.write((byte)BMP_ALT_VALUE);
-      //}else Wire.write((byte)ERROR_CODE);
-      //data_string = "";
-      break;
-      
-    case BH1750_LUX_REG: //D , 0x44
-      Serial.println("In CASE D");
-      val = 13;
-      Wire.write((byte)val);
-      //if (xQueueReceive(BH1750_QUEUE, &BH1750_LUX_VALUE, 1) == pdPASS) {
-      //  uint8_t val = 13;
-      //  Wire.write((byte)val);
-      //  //Wire.write((byte)BH1750_LUX_VALUE);
-      //}else Wire.write((byte)ERROR_CODE);
-      //data_string = "";
-      break;
-    case RTC_REG: //E , 0x45
-      val = 14;
-      Wire.write((byte)val);
-      //if (xQueueReceive(TIMESTAMP_QUEUE, &RTC_DATA_VALUE, 10) == pdPASS) {
-      //  
-      //  //Wire.write((byte)RTC_DATA_VALUE);
-      //  Serial.print("RTC_DATA_VALUE: ");
-      //  Serial.println(String(RTC_DATA_VALUE));
-      //}else Wire.write((byte)ERROR_CODE);
-      //data_string = "";
-      break;
-      
-    default:
-      // Richiesta non valida, invia messaggio di errore
-      Serial.println("INVALID REQUEST!");
-      String errorMessage = "Error occurred";
-      data_string = "";
-      Wire.write(errorMessage.c_str(), errorMessage.length());
-      break;
-  }
-  
-}
-*/
-
 String generateJsonString(String name, String data, String timestamp) {
 
   StaticJsonDocument<200> doc;
@@ -494,26 +364,6 @@ void LED_Control(bool* LED_ON_OFF) {
   }
 }
 
-/*
-void printQueue()
-{
-  UBaseType_t queueLength = uxQueueMessagesWaiting(BMP_TEMP_QUEUE);
-  Serial.print("Number of elements in the queue: ");
-  Serial.println(queueLength);
-
-  // Dichiarazione di una variabile per ricevere i messaggi dalla coda
-  BaseType_t item;
-
-  // Loop per estrarre e stampare gli elementi dalla coda
-  while (xQueuePeek(BMP_TEMP_QUEUE, &item, 1) == pdTRUE)
-  {
-    Serial.print("Queue item: ");
-    Serial.println(item);
-    xQueueReceive(BMP_TEMP_QUEUE, &item, 1); // Rimuovi l'elemento dalla coda
-  }
-}
-*/
-
 void TASK_MONITOR_Task(void *pvParameters)
 {
   (void) pvParameters;
@@ -524,26 +374,11 @@ void TASK_MONITOR_Task(void *pvParameters)
   Serial.println(F("TASK MONITOR started..."));
 
   bool LED_ON_OFF = false;
-  /*
-  String TEMP_BMP280_MONITOR  = "";
-  String PRESS_BMP280_MONITOR = "";
-  String ALT_BMP280_MONITOR   = "";
-  String BH1750_MONITOR       = "";
-  String RTC_MONITOR          = "";
-  */
-
 
   while (1)
   {
     LED_Control(&LED_ON_OFF);
     
-    /*
-    BMP280_TASK_DELAY        = 150 + random(0, 20);
-    BH1750_TASK_DELAY        = 150 + random(0, 20);
-    RTC_TASK_DELAY           = 150 + random(0, 20);
-    TASK_MONITOR_TASK_DELAY  = 500 + random(0, 20);
-    */
-
     /*
         LOOP HERE
     */
