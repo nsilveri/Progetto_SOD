@@ -233,7 +233,7 @@ void receiveData_new(int byteCount) {
   }
 }
 
-void string_to_byte_array(String Sync_Time_String, byte byteArray[])
+unsigned long string_to_byte_array(String Sync_Time_String, byte byteArray[])
 {
   char* token = strtok(const_cast<char*>(Sync_Time_String.c_str()), ",");
   int index = 0;
@@ -247,6 +247,14 @@ void string_to_byte_array(String Sync_Time_String, byte byteArray[])
   Serial.print(String(byteArray[1]) + ", ");
   Serial.print(String(byteArray[2]) + ", ");
   Serial.println(String(byteArray[3])); 
+
+  // Combina gli elementi dell'array di byte in un intero a 32 bit
+  unsigned long combinedInt = (byteArray[0] << 24) | (byteArray[1] << 16) | (byteArray[2] << 8) | byteArray[3];
+  // Utilizza il valore combinato come timestamp
+  unsigned long timestamp = combinedInt;
+  Serial.println(timestamp);
+
+  return timestamp;
 }
 
 void receiveData(int byteCount) {
@@ -277,7 +285,9 @@ void receiveData(int byteCount) {
     }
   }
   if(SYNC_TS){
-    string_to_byte_array(Sync_Time_String, byteArray);
+    unsigned long ts = string_to_byte_array(Sync_Time_String, byteArray);
+    DateTime dateTime = DateTime(ts); // Imposta il timestamp desiderato
+    rtc.adjust(dateTime);
   }
   
   SYNC_TS = false;
