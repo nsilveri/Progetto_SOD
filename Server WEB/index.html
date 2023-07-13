@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pagina Web MQTT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.0.1/mqtt.min.js"></script>
+</head>
+<body>
+    <h1>Pagina Web MQTT</h1>
+
+    <button id="BMP280">Read BMP280</button>
+    <button id="BH1750">Read BH1750</button>
+    <button id="Read_RTC">Read RTC</button>
+    <button id="Sync_RTC">Sync RTC</button>
+
+    <div id="messageContainer"></div>
+
+    <script>
+        // Configurazione del broker MQTT
+        var broker = "192.168.137.192";
+        var port = 1884;
+        var clientId = "webclient_" + parseInt(Math.random() * 100, 10);
+        var client = mqtt.connect("mqtt://" + broker + ":" + port, { clientId: clientId });
+
+        //Sensors TOPIC
+        BMP280_TOPIC = "BMP280"
+        BH1750_TOPIC = "BH1750"
+        RTC_TOPIC    = "RTC"
+
+        // Connessione al broker MQTT
+        client.on("connect", function () {
+            console.log("Connesso al broker MQTT");
+
+            // Event listeners per i pulsanti
+            document.getElementById("BMP280").addEventListener("click", function () {
+                publishMessage("WEB_REQ", JSON.stringify({"sensor":"BMP280"}));
+            });
+
+            document.getElementById("BH1750").addEventListener("click", function () {
+                publishMessage("WEB_REQ", JSON.stringify({"sensor":"BH1750"}));
+            });
+
+            document.getElementById("Read_RTC").addEventListener("click", function () {
+                publishMessage("WEB_REQ", JSON.stringify({"sensor":"RTC_READ"}));
+            });
+
+            document.getElementById("Sync_RTC").addEventListener("click", function () {
+                publishMessage("WEB_REQ", JSON.stringify({"sensor":"RTC_SYNC"}));
+            });
+
+            // Sottoscrizione a diversi topic MQTT
+            subscribeTopic(BMP280_TOPIC);
+            subscribeTopic(BH1750_TOPIC);
+            subscribeTopic(RTC_TOPIC);
+        });
+
+        // Funzione per pubblicare un messaggio MQTT
+        function publishMessage(topic, message) {
+            client.publish(topic, message);
+            console.log("Messaggio pubblicato su " + topic + ": " + message);
+        }
+
+        // Funzione per sottoscriversi a un topic MQTT
+        function subscribeTopic(topic) {
+            client.subscribe(topic);
+            console.log("Sottoscritto al topic MQTT: " + topic);
+        }
+
+        // Funzione di callback chiamata quando un messaggio viene ricevuto su un topic sottoscritto
+        client.on("message", function (topic, message) {
+            console.log("Messaggio ricevuto su " + topic + ": " + message.toString());
+            displayMessage(topic, message.toString());
+        });
+
+        // Funzione per visualizzare i messaggi ricevuti
+        function displayMessage(topic, message) {
+            var messageContainer = document.getElementById("messageContainer");
+            var messageElement = document.createElement("p");
+            messageElement.textContent = "Topic: " + topic + " - Messaggio: " + message;
+            messageContainer.appendChild(messageElement);
+        }
+    </script>
+</body>
+</html>

@@ -33,7 +33,7 @@ class bmp_sensor:
 
     def _data_exchange(self, REG):
         self._write_byte(REG)
-        time.sleep(0.5)
+        time.sleep(0.1)
         #byte = 99 #
         byte = self._read_byte()
         return byte
@@ -51,13 +51,9 @@ class bmp_sensor:
         return altitude
     
     def generate_json_data(self, rtc):
-        #RTC_sensor = rtc
         TEMP = self.read_temperature()
-        time.sleep(0.1)
         PRESS = self.read_pressure()
-        time.sleep(0.1)
         ALT = self.read_altitude()
-        time.sleep(0.1)
         RTC_DATA = rtc.generate_human_ts()
 
         data = {

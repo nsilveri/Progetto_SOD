@@ -18,7 +18,10 @@ class bh1750_sensor:
             print ("Writing Error "+str(e))
 
     def _write_i2c_block_data(self, reg, value):
-        self.bus.write_i2c_block_data(self.address, reg, value)
+        try:
+            self.bus.write_i2c_block_data(self.address, reg, value)
+        except Exception as e:
+            print ("Writing Error "+str(e))
 
     def _read_byte(self):
         try:
@@ -29,12 +32,15 @@ class bh1750_sensor:
         return received_data
 
     def _read_word(self):
-        data = self.bus.read_word_data(self.address)#, 0x00)
+        try:
+            data = self.bus.read_word_data(self.address)#, 0x00)
+        except Exception as e:
+            print ("Writing Error "+str(e))
         return data
 
     def _data_exchange(self, REG):
         self._write_byte(REG)
-        time.sleep(0.5)
+        time.sleep(0.1)
         byte = self._read_byte()
         return byte
     
@@ -45,7 +51,6 @@ class bh1750_sensor:
     def generate_json_data(self, rtc):
         #RTC_sensor = RTC_sensor.timestamp_sensor(self, address)
         LUX = self.read_light_intensity()
-        time.sleep(0.1)
         RTC_DATA = rtc.generate_human_ts()
         
         data = {
