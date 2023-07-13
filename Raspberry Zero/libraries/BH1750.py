@@ -2,14 +2,13 @@ import time
 import json
 #import smbus
 
-# BH1750_LUX = 0x13
 BH1750_LUX = 0x44
 
-
 class bh1750_sensor:
-    def __init__(self, bus, address):
+    def __init__(self, bus, address, rtc):
         self.address = address
         self.bus = bus
+        self.rtc = rtc
         
     def _write_byte(self, value):
         #self.bus.write_byte(self.address, value)
@@ -33,22 +32,26 @@ class bh1750_sensor:
         data = self.bus.read_word_data(self.address)#, 0x00)
         return data
 
-    def read_light_intensity(self):
-        self._write_byte(BH1750_LUX) 
-        time.sleep(0.2) 
-        #intensity = self._read_word() 
-        intensity = self._read_byte()
-        return intensity
+    def _data_exchange(self, REG):
+        self._write_byte(REG)
+        time.sleep(0.5)
+        byte = self._read_byte()
+        return byte
     
-    def generate_json_data(self, address): #, RTC):
+    def read_light_intensity(self):
+        lux = bh1750_sensor._data_exchange(self, BH1750_LUX)
+        return lux
+    
+    def generate_json_data(self, rtc):
         #RTC_sensor = RTC_sensor.timestamp_sensor(self, address)
         LUX = self.read_light_intensity()
-        #RTC_DATA = RTC.read_timestamp()
+        time.sleep(0.1)
+        RTC_DATA = rtc.generate_human_ts()
         
         data = {
             'Name': "BH1750",
-            'Lux': LUX#,
-            #'timestamp': RTC_DATA
+            'Lux': LUX,
+            'timestamp': RTC_DATA
         }
 
         json_data = json.dumps(data)

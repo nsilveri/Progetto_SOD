@@ -11,9 +11,6 @@
 bool RTC_LOG = false;
 
 RTC_DS1307 rtc;  // I2C1 set in setup()
-//RTC_PCF8523 rtc;
-
-//unsigned long PCF8523_data = 0;
 
 //Stato sensori
 bool RTC_PCF8523_status = false;
@@ -63,7 +60,6 @@ int RTC_data_read()
   }
 
   int TS =  now.unixtime();
-  //Serial.print("TS: " + String(TS));
 
   return TS;
 }

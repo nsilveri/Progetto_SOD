@@ -21,9 +21,9 @@ while I2C_STATE == False:
         I2C_STATE = False
         time.sleep(0.5)
 
-BMP_sensor    = BMP280.bmp_sensor(bus, PICO_ADDRESS)
-BH1750_sensor = BH1750.bh1750_sensor(bus, PICO_ADDRESS)
 RTC_sensor    = RTC.timestamp_sensor(bus, PICO_ADDRESS)
+BMP_sensor    = BMP280.bmp_sensor(bus, PICO_ADDRESS, RTC_sensor)
+BH1750_sensor = BH1750.bh1750_sensor(bus, PICO_ADDRESS, RTC_sensor)
 
 
 def convert_to_string(sequence):
@@ -36,25 +36,27 @@ def convert_to_string(sequence):
 
 
 def BMP280_data_read():
-    DATA = BMP_sensor.generate_json_data(PICO_ADDRESS)
+    DATA = BMP_sensor.generate_json_data(RTC_sensor)
     print(DATA)
     return DATA
 
 
 def BH1750_data_read():
-    DATA = BH1750_sensor.generate_json_data(PICO_ADDRESS) #, RTC_sensor)
+    DATA = BH1750_sensor.generate_json_data(RTC_sensor)
     print(DATA)
     return DATA
 
 
 def RTC_data_read():
-    DATA = RTC_sensor.generate_json_data(PICO_ADDRESS)
+    DATA = RTC_sensor.generate_json_data()#PICO_ADDRESS)
     print(DATA)
     return DATA
 
 
 def Sync_time_pico():
-    RTC_sensor.sync_datetime()
+    DATA = RTC_sensor.sync_datetime()
+    print(DATA)
+    return DATA
 
 
 def main():

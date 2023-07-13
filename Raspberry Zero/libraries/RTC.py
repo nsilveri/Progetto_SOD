@@ -2,6 +2,8 @@ import smbus
 import time
 import json
 import datetime
+import struct
+from datetime import datetime, timedelta
 
 # RTC       = 0x13
 # SYNC_TIME = 0x15
@@ -9,13 +11,14 @@ import datetime
 RTC = 0x45
 SYNC_TIME = 0x46
 
+reference_time = datetime.now()
+
 class timestamp_sensor:
     def __init__(self, bus, address):
         self.address = address
         self.bus = bus
 
     def _write_byte(self, value):
-        #self.bus.write_byte(self.address, value)
         try:
             self.bus.write_byte(self.address, value)
         except Exception as e:
@@ -34,10 +37,17 @@ class timestamp_sensor:
 
     def _read_timestamp(self):
         timestamp = self.bus.read_i2c_block_data(self.address, RTC, 4)
+        print("timestamp: ")
         print(timestamp)
-        readable_timestamp = datetime.datetime.fromtimestamp(int.from_bytes(timestamp, 'big')).strftime('%Y-%m-%d %H:%M:%S')
-        print(readable_timestamp)
-        return readable_timestamp
+        #readable_timestamp = datetime.datetime.fromtimestamp(int.from_bytes(timestamp, 'big')).strftime('%Y-%m-%d %H:%M:%S')
+        #print(readable_timestamp)
+        return timestamp
+    
+    def _convert_byte_to_human_ts(unix_ts):
+        epoch_timestamp = (unix_ts[0] << 24) + (unix_ts[1] << 16) + (unix_ts[2] << 8) + unix_ts[3]
+        dt = datetime.fromtimestamp(epoch_timestamp)
+        human_readable = dt.strftime('%Y-%m-%d %H:%M:%S')
+        return human_readable
 
     @staticmethod
     def convert_to_byte_list(data):
@@ -46,7 +56,7 @@ class timestamp_sensor:
             byte = ord(char)
             byte_list.append(byte)
         return byte_list
-
+    
     def sync_datetime(self):
         current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
         timestamp = int(time.time())
@@ -58,26 +68,32 @@ class timestamp_sensor:
 
     # Function to send date and time to Arduino
     def send_datetime(self):
-        # Get the current date and time
         current_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
-        # Send the date and time to the Arduino byte by byte
         byte_list = timestamp_sensor.convert_to_byte_list(current_datetime)
         for byte in byte_list:
+            print(byte)
             self.bus.write_byte(self.address, byte)
             time.sleep(0.01)  # Add a small delay between bytes
+        return current_datetime 
+
+    def generate_human_ts(self):
+        RTC_DATA = self.read_timestamp()
+        ts = timestamp_sensor._convert_byte_to_human_ts(RTC_DATA)
+        return ts
 
     def read_timestamp(self):
         self._write_byte(RTC)  # Write command to read timestamp
-        time.sleep(0.01)  # Wait for the timestamp to be ready
+        time.sleep(1)  # Wait for the timestamp to be ready
         timestamp = self._read_timestamp()  # Read the timestamp
         return timestamp
 
-    def generate_json_data(self, address):
-        RTC_DATA = self.read_timestamp()
+    
 
+    def generate_json_data(self):
+        ts = timestamp_sensor.generate_human_ts(self)
         data = {
             'Name': "RTC",
-            'timestamp': RTC_DATA
+            'timestamp': ts
         }
 
         json_data = json.dumps(data)
