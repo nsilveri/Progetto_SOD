@@ -1,0 +1,11 @@
+[Unit]
+Description=Main MQTT Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/dietpi/main_mqtt.py
+WorkingDirectory=/home/dietpi
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

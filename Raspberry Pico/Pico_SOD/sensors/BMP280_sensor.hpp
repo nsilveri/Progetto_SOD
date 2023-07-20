@@ -8,13 +8,10 @@
 //Librerie Sensori
 #include <Adafruit_BMP280.h>
 
-#define ERROR_SENSOR_SETUP_CODE -99999
+// Inizializzazione del sensore su bus I2C1
+Adafruit_BMP280 bmp(&Wire1);
 
-Adafruit_BMP280 bmp(&Wire1); // I2C1
-
-bool Adafruit_BMP280_status = false;
-#define ERROR_SENSOR_SETUP_CODE -99999
-
+//Setup del sensore
 void BMP280_setup()
 {
   while (!bmp.begin()) {
@@ -36,18 +33,21 @@ void BMP280_setup()
                   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
 }
 
+// Lettura del dato del sensore
 float BMP280_data_temp()
 {
   float temp = bmp.readTemperature();
   return temp;
 }
 
+// Lettura del dato del sensore
 float BMP280_data_press()
 {
   float bar  = bmp.readPressure();
   return bar;
 }
 
+// Lettura del dato del sensore
 float BMP280_data_alt()
 {
   float alt  = bmp.readAltitude();

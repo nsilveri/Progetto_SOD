@@ -10,14 +10,13 @@
 
 bool RTC_LOG = false;
 
-RTC_DS1307 rtc;  // I2C1 set in setup()
+// Inizializzazione del sensore
+RTC_DS1307 rtc;
 
-//Stato sensori
-bool RTC_PCF8523_status = false;
-
+//Setup dell'RTC
 void RTC_setup()
 {
-  if (! rtc.begin(&Wire1)) {
+  if (! rtc.begin(&Wire1)) { // RTC inizializzato su bus I2C1
     Serial.println("Couldn't find RTC");
     Serial.flush();
   }
@@ -27,14 +26,7 @@ void RTC_setup()
   }
 }
 
-String RTC_data_read_old(){
-
-  DateTime now = rtc.now();
-  char buf2[] = "YYMMDD-hh:mm:ss";
-  String ts = now.toString(buf2);
-  return ts;
-}
-
+// Lettura del timestamp
 int RTC_data_read()
 {
   DateTime now = rtc.now();

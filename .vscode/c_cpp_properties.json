@@ -28,6 +28,7 @@
                 "C:\\Users\\Nicola\\AppData\\Local\\Arduino15\\packages\\rp2040\\hardware\\rp2040\\3.3.0\\libraries\\FreeRTOS\\src",
                 "D:\\Documents\\Arduino\\libraries\\BH1750_WE\\src",
                 "D:\\Documents\\Arduino\\libraries\\RTClib\\src",
+                "D:\\Documents\\Arduino\\libraries\\I2CScanner\\src",
                 "c:\\users\\nicola\\appdata\\local\\arduino15\\packages\\rp2040\\tools\\pqt-gcc\\1.5.0-b-c7bab52\\arm-none-eabi\\include\\c++\\10.3.0",
                 "c:\\users\\nicola\\appdata\\local\\arduino15\\packages\\rp2040\\tools\\pqt-gcc\\1.5.0-b-c7bab52\\arm-none-eabi\\include\\c++\\10.3.0\\arm-none-eabi\\thumb",
                 "c:\\users\\nicola\\appdata\\local\\arduino15\\packages\\rp2040\\tools\\pqt-gcc\\1.5.0-b-c7bab52\\arm-none-eabi\\include\\c++\\10.3.0\\backward",
