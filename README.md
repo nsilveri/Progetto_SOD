@@ -200,8 +200,6 @@ Per controllare che tutto sia andato a buon fine eseguire:
 sudo systemctl status start_webapp.service
 ```
 
-ATTENZIONE! Molto probabilmente l'indirizzo IP assegnato dalla DietPI sarà diverso da quello indicato nel codice. Se le richieste HTTP non dovessero funzionare dal frontend al backend, bisogna modificare il file .env nella cartella frontend e modificare il campo REACT_APP_
-
 
 ## Autori
 
