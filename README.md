@@ -179,7 +179,7 @@ sudo nano /etc/systemd/system/start_webapp.service
 e copiare al suo interno le seguenti righe:
 ```bash
 [Unit]
-Description=Avvio automatico di WEB_APP all'avvio
+Description=WEB_APP Service
 After=network.target
 
 [Service]
