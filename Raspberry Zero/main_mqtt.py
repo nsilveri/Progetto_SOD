@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt import client as mqtt_client
 import json
 from datetime import datetime
-import pico_sensors
+from pico_sensors import pico_sensors
 
 # Definizione dei topic per i diversi sensori e richieste
 BMP280_TOPIC = "BMP280"
