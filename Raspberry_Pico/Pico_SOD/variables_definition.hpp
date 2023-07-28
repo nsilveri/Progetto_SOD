@@ -4,10 +4,10 @@
 //Librerie Arduino
 #include <Arduino.h>
 
-uint16_t BMP280_TASK_DELAY        = 150 + random(0, 20);
-uint16_t BH1750_TASK_DELAY        = 150 + random(0, 20);
-uint16_t RTC_TASK_DELAY           = 150 + random(0, 20);
-uint16_t TASK_MONITOR_TASK_DELAY  = 500 + random(0, 20);
+uint16_t BMP280_TASK_DELAY        = 145;
+uint16_t BH1750_TASK_DELAY        = 150;
+uint16_t RTC_TASK_DELAY           = 155;
+uint16_t TASK_MONITOR_TASK_DELAY  = 500; 
 
 
 #define SLAVE_ADDRESS   0x08 // Indirizzo della Pico in modalità Slave sull'I2C0

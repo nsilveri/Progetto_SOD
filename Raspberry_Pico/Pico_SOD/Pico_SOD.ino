@@ -4,7 +4,6 @@
 #include "sensors\BMP280_sensor.hpp"
 #include "sensors\BH1750_sensor.hpp"
 #include "sensors\RTC_sensor.hpp"
-#include "sensors\I2C_sensors_scan.hpp"
 #include "variables_definition.hpp"
 #include <FreeRTOS.h>
 #include <task.h>
@@ -48,7 +47,6 @@ void setup() {
   I2C1_Semaphore = xSemaphoreCreateMutexStatic(&xMutexBuffer);
 
   // Crea le attività per i diversi sensori e il monitoraggio
-  xTaskCreate(Scan_Task, "Scan_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 3, &Scan_xHandle);
   xTaskCreate(BMP280_Task, "BMP280_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 1, &BMP280_xHandle);
   xTaskCreate(BH1750_Task, "BH1750_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &BH1750_xHandle);
   xTaskCreate(RTC_Task, "RTC_Task", STACK_SIZE, NULL, configMAX_PRIORITIES - 4, &RTC_xHandle);
@@ -304,7 +302,6 @@ void TASK_MONITOR_Task(void *pvParameters) {
         Serial.println(BMP_TEMP_VALUE);
         TEMP_BMP280_MONITOR_AUX = BMP_TEMP_VALUE;
       }
-
       if (PRESS_BMP280_MONITOR_AUX != BMP_PRESS_VALUE) {
         Serial.print("|PRESS: ");
         Serial.println(BMP_PRESS_VALUE);
@@ -330,8 +327,8 @@ void TASK_MONITOR_Task(void *pvParameters) {
       }
 
       Serial.println(F("====== RITARDO ================================================="));
-      Serial.println(F("| BH1750: ") + String(BH1750_TASK_DELAY) + F("ms | BMP: ") + String(BMP280_TASK_DELAY) + F("ms | RTC: ") + String(RTC_TASK_DELAY) + F("ms | TSK: ") + String(TASK_MONITOR_TASK_DELAY) + F("ms"));
-      Serial.println(F("=========================================| Uptime sistema: ") + String(millis() / 1000) + F("s"));
+      Serial.println("| BH1750: " + String(BH1750_TASK_DELAY) + "ms | BMP: " + String(BMP280_TASK_DELAY) + "ms | RTC: " + String(RTC_TASK_DELAY) + "ms | TSK: " + String(TASK_MONITOR_TASK_DELAY) + "ms");
+      Serial.println("=========================================| Uptime sistema: " + String(millis() / 1000) + "s");
     }
   }
 }
