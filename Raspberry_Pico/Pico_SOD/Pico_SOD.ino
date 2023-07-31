@@ -63,16 +63,16 @@ void BMP280_Task(void *pvParameters) {
 
   while (1) {
     vTaskDelay(BMP280_TASK_DELAY / portTICK_PERIOD_MS);
-
+    
     // Tentativo di acquisire il semaforo, se questa modalità è abilitata
-    if ((xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) || SEMAPHORE_I2C1_ENABLED == true) {
-      BMP_TEMP_VALUE = BMP280_data_temp();
-      BMP_PRESS_VALUE = BMP280_data_press();
-      BMP_ALT_VALUE = BMP280_data_alt();
-
-      xSemaphoreGive(I2C1_Semaphore); // Rilascio del semaforo
-    } else if (SEMAPHORE_I2C1_ENABLED) {// Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
-      return;                           // lasciando nelle variabili globali e dati della precedente acquisizione
+    if(SEMAPHORE_I2C1_ENABLED == true){
+      if (xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) {
+        BMP_TEMP_VALUE = BMP280_data_temp();
+        BMP_PRESS_VALUE = BMP280_data_press();
+        BMP_ALT_VALUE = BMP280_data_alt();
+        xSemaphoreGive(I2C1_Semaphore); // Rilascio del semaforo
+      } else {// Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
+          return;                           // lasciando nelle variabili globali e dati della precedente acquisizione
     } else {  
       BMP_TEMP_VALUE = BMP280_data_temp(); // Se il semaforo è disabilitato, il task interroga direttamente il sensore
       BMP_PRESS_VALUE = BMP280_data_press();
@@ -93,11 +93,12 @@ void BH1750_Task(void *pvParameters) {
     vTaskDelay(BH1750_TASK_DELAY / portTICK_PERIOD_MS);
 
     // Tentativo di acquisire il semaforo, se questa modalità è abilitata
-    if ((xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) || SEMAPHORE_I2C1_ENABLED) {
-      BH1750_LUX_VALUE = BH1750_data_read();
-      xSemaphoreGive(I2C1_Semaphore);  // Rilascio del semaforo
-    } else if (SEMAPHORE_I2C1_ENABLED) { // Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
-      return;                            // lasciando nelle variabili globali e dati della precedente acquisizione
+    if(SEMAPHORE_I2C1_ENABLED == true){
+      if (xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) {
+        BH1750_LUX_VALUE = BH1750_data_read();
+        xSemaphoreGive(I2C1_Semaphore);  // Rilascio del semaforo
+      } else { // Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
+          return;                            // lasciando nelle variabili globali e dati della precedente acquisizione
     } else {
       BH1750_LUX_VALUE = BH1750_data_read(); // Se il semaforo è disabilitato, il task interroga direttamente il sensore
     }
@@ -116,11 +117,12 @@ void RTC_Task(void *pvParameters) {
     vTaskDelay(RTC_TASK_DELAY / portTICK_PERIOD_MS);
 
     // Tentativo di acquisire il semaforo, se questa modalità è abilitata
-    if ((xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) || SEMAPHORE_I2C1_ENABLED) {
-      RTC_DATA_VALUE = RTC_data_read();
-      xSemaphoreGive(I2C1_Semaphore); // Rilascio del semaforo
-    } else if (SEMAPHORE_I2C1_ENABLED) { // Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
-      return;                            // lasciando nelle variabili globali e dati della precedente acquisizione
+    if(SEMAPHORE_I2C1_ENABLED == true){
+      if (xSemaphoreTake(I2C1_Semaphore, (TickType_t) portMAX_DELAY) == pdTRUE) {
+        RTC_DATA_VALUE = RTC_data_read();
+        xSemaphoreGive(I2C1_Semaphore); // Rilascio del semaforo
+      } else{ // Se l'acquisizione del semaforo fallisce il il task non esegue l'interrogazione del sensore,
+          return;                            // lasciando nelle variabili globali e dati della precedente acquisizione
     } else {
       RTC_DATA_VALUE = RTC_data_read(); // Se il semaforo è disabilitato, il task interroga direttamente il sensore
     }
@@ -231,7 +233,7 @@ void sendData_I2C() {
       break;
 
     case BH1750_LUX_REG: //D , 0x44
-      Wire.write((byte) BH1750_LUX_VALUE);
+        Wire.write((byte) BH1750_LUX_VALUE);
       break;
 
     case RTC_REG: //E , 0x45
@@ -294,7 +296,7 @@ void TASK_MONITOR_Task(void *pvParameters) {
     float PRESS_BMP280_MONITOR_AUX = 0.0;
     float ALT_BMP280_MONITOR_AUX = 0.0;
     float BH1750_MONITOR_AUX = 0.0;
-    uint32_t RTC_MONITOR_AUX = 0;
+    int RTC_MONITOR_AUX = 0;
 
     if (MONITOR_LOG) {
       if (TEMP_BMP280_MONITOR_AUX != BMP_TEMP_VALUE) {
