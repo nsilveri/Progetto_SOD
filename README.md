@@ -170,13 +170,13 @@ REACT_APP_MQTT_BROKER = ws://<indirizzo-ip-vm>_1884
 Per eseguire l'applicazione WEB, è possibile eseguire manualmente il seguente script presente all'interno della cartella "Applicazione_WEB":
 
 ```bash
-sh start_WEB_APP.sh
+sh start_web_app.sh
 ```
 oppure si può impostare l'avvio automatico andando ad eseguire il comando:
 ```bash
 sudo nano /etc/systemd/system/start_webapp.service
 ```
-e copiare al suo interno le seguenti righe:
+e copiando al suo interno le seguenti righe:
 ```bash
 [Unit]
 Description=WEB_APP Service
@@ -184,14 +184,15 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/dietpi/start_WEB_APP.sh
+ExecStart=sh /usr/local/bin/start_web_app.sh
 
 [Install]
 WantedBy=multi-user.target
 
 ```
-Una volta copiato, salvare tramite Ctrl+X ed eseguire i seguenti due comandi:
+Una volta copiato, salvare tramite Ctrl+X ed eseguire i seguenti comandi:
 ```bash
+sudo cp start_web_app.sh /usr/local/bin
 sudo systemctl enable start_webapp.service
 sudo systemctl start  start_webapp.service
 ```
